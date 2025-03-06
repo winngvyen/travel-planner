@@ -4,8 +4,14 @@ class Plan {
   String name;
   String description;
   DateTime date;
+  bool isCompleted;
 
-  Plan({required this.name, required this.description, required this.date});
+  Plan({
+    required this.name,
+    required this.description,
+    required this.date,
+    this.isCompleted = false,
+  });
 }
 
 class PlanManagerScreen extends StatefulWidget {
@@ -19,6 +25,18 @@ class _PlanManagerScreenState extends State<PlanManagerScreen> {
   void _addPlan(String name, String description, DateTime date) {
     setState(() {
       plans.add(Plan(name: name, description: description, date: date));
+    });
+  }
+
+  void _toggleCompletion(int index) {
+    setState(() {
+      plans[index].isCompleted = !plans[index].isCompleted;
+    });
+  }
+
+  void _deletePlan(int index) {
+    setState(() {
+      plans.removeAt(index);
     });
   }
 
@@ -91,10 +109,31 @@ class _PlanManagerScreenState extends State<PlanManagerScreen> {
       body: ListView.builder(
         itemCount: plans.length,
         itemBuilder: (context, index) {
-          return ListTile(
-            title: Text(plans[index].name),
-            subtitle: Text("${plans[index].description} - ${plans[index].date.toLocal()}".split(' ')[0]),
-            onLongPress: () => _editPlan(index),
+          return Dismissible(
+            key: Key(plans[index].name),
+            direction: DismissDirection.endToStart,
+            onDismissed: (direction) {
+              _toggleCompletion(index);
+            },
+            background: Container(
+              color: Colors.green,
+              alignment: Alignment.centerRight,
+              padding: EdgeInsets.symmetric(horizontal: 20),
+              child: Icon(Icons.check, color: Colors.white),
+            ),
+            child: GestureDetector(
+              onDoubleTap: () => _deletePlan(index),
+              child: ListTile(
+                title: Text(
+                  plans[index].name,
+                  style: TextStyle(
+                    decoration: plans[index].isCompleted ? TextDecoration.lineThrough : null,
+                  ),
+                ),
+                subtitle: Text("${plans[index].description} - ${plans[index].date.toLocal()}".split(' ')[0]),
+                onLongPress: () => _editPlan(index),
+              ),
+            ),
           );
         },
       ),
