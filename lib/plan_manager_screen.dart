@@ -22,16 +22,16 @@ class _PlanManagerScreenState extends State<PlanManagerScreen> {
     });
   }
 
-  void _showAddPlanDialog() {
-    TextEditingController nameController = TextEditingController();
-    TextEditingController descriptionController = TextEditingController();
-    DateTime selectedDate = DateTime.now();
+  void _editPlan(int index) {
+    TextEditingController nameController = TextEditingController(text: plans[index].name);
+    TextEditingController descriptionController = TextEditingController(text: plans[index].description);
+    DateTime selectedDate = plans[index].date;
 
     showDialog(
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: Text("Create Plan"),
+          title: Text("Edit Plan"),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -48,12 +48,14 @@ class _PlanManagerScreenState extends State<PlanManagerScreen> {
                 onPressed: () async {
                   DateTime? pickedDate = await showDatePicker(
                     context: context,
-                    initialDate: DateTime.now(),
+                    initialDate: selectedDate,
                     firstDate: DateTime.now(),
                     lastDate: DateTime(2100),
                   );
                   if (pickedDate != null) {
-                    selectedDate = pickedDate;
+                    setState(() {
+                      selectedDate = pickedDate;
+                    });
                   }
                 },
                 child: Text("Pick Date"),
@@ -67,13 +69,14 @@ class _PlanManagerScreenState extends State<PlanManagerScreen> {
             ),
             TextButton(
               onPressed: () {
-                if (nameController.text.isNotEmpty &&
-                    descriptionController.text.isNotEmpty) {
-                  _addPlan(nameController.text, descriptionController.text, selectedDate);
-                  Navigator.pop(context);
-                }
+                setState(() {
+                  plans[index].name = nameController.text;
+                  plans[index].description = descriptionController.text;
+                  plans[index].date = selectedDate;
+                });
+                Navigator.pop(context);
               },
-              child: Text("Add"),
+              child: Text("Save"),
             ),
           ],
         );
@@ -91,11 +94,12 @@ class _PlanManagerScreenState extends State<PlanManagerScreen> {
           return ListTile(
             title: Text(plans[index].name),
             subtitle: Text("${plans[index].description} - ${plans[index].date.toLocal()}".split(' ')[0]),
+            onLongPress: () => _editPlan(index),
           );
         },
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: _showAddPlanDialog,
+        onPressed: () => _addPlan("New Plan", "Description", DateTime.now()),
         child: Icon(Icons.add),
       ),
     );
