@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:table_calendar/table_calendar.dart';
 
 class Plan {
   String name;
@@ -21,29 +22,34 @@ class PlanManagerScreen extends StatefulWidget {
 
 class _PlanManagerScreenState extends State<PlanManagerScreen> {
   List<Plan> plans = [];
+  DateTime _selectedDate = DateTime.now();
+  Map<DateTime, List<Plan>> _plansByDate = {};
 
   void _addPlan(String name, String description, DateTime date) {
     setState(() {
-      plans.add(Plan(name: name, description: description, date: date));
+      Plan newPlan = Plan(name: name, description: description, date: date);
+      plans.add(newPlan);
+      _plansByDate.putIfAbsent(date, () => []).add(newPlan);
     });
   }
 
-  void _toggleCompletion(int index) {
+  void _toggleCompletion(Plan plan) {
     setState(() {
-      plans[index].isCompleted = !plans[index].isCompleted;
+      plan.isCompleted = !plan.isCompleted;
     });
   }
 
-  void _deletePlan(int index) {
+  void _deletePlan(Plan plan) {
     setState(() {
-      plans.removeAt(index);
+      _plansByDate[plan.date]?.remove(plan);
+      plans.remove(plan);
     });
   }
 
-  void _editPlan(int index) {
-    TextEditingController nameController = TextEditingController(text: plans[index].name);
-    TextEditingController descriptionController = TextEditingController(text: plans[index].description);
-    DateTime selectedDate = plans[index].date;
+  void _editPlan(Plan plan) {
+    TextEditingController nameController = TextEditingController(text: plan.name);
+    TextEditingController descriptionController = TextEditingController(text: plan.description);
+    DateTime selectedDate = plan.date;
 
     showDialog(
       context: context,
@@ -88,9 +94,11 @@ class _PlanManagerScreenState extends State<PlanManagerScreen> {
             TextButton(
               onPressed: () {
                 setState(() {
-                  plans[index].name = nameController.text;
-                  plans[index].description = descriptionController.text;
-                  plans[index].date = selectedDate;
+                  _plansByDate[plan.date]?.remove(plan);
+                  plan.name = nameController.text;
+                  plan.description = descriptionController.text;
+                  plan.date = selectedDate;
+                  _plansByDate.putIfAbsent(selectedDate, () => []).add(plan);
                 });
                 Navigator.pop(context);
               },
@@ -102,43 +110,89 @@ class _PlanManagerScreenState extends State<PlanManagerScreen> {
     );
   }
 
+  void _updatePlanDate(Plan plan, DateTime newDate) {
+    setState(() {
+      _plansByDate[plan.date]?.remove(plan);
+      plan.date = newDate;
+      _plansByDate.putIfAbsent(newDate, () => []).add(plan);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text("Adoption & Travel Planner")),
-      body: ListView.builder(
-        itemCount: plans.length,
-        itemBuilder: (context, index) {
-          return Dismissible(
-            key: Key(plans[index].name),
-            direction: DismissDirection.endToStart,
-            onDismissed: (direction) {
-              _toggleCompletion(index);
+      body: Column(
+        children: [
+          // Calendar Widget
+          TableCalendar(
+            focusedDay: _selectedDate,
+            firstDay: DateTime(2000),
+            lastDay: DateTime(2100),
+            selectedDayPredicate: (day) => isSameDay(_selectedDate, day),
+            onDaySelected: (selectedDay, focusedDay) {
+              setState(() {
+                _selectedDate = selectedDay;
+              });
             },
-            background: Container(
-              color: Colors.green,
-              alignment: Alignment.centerRight,
-              padding: EdgeInsets.symmetric(horizontal: 20),
-              child: Icon(Icons.check, color: Colors.white),
+          ),
+          Expanded(
+            child: DragTarget<Plan>(
+              onAccept: (plan) {
+                _updatePlanDate(plan, _selectedDate);
+              },
+              builder: (context, candidateData, rejectedData) {
+                return ListView.builder(
+                  itemCount: _plansByDate[_selectedDate]?.length ?? 0,
+                  itemBuilder: (context, index) {
+                    Plan plan = _plansByDate[_selectedDate]![index];
+                    return Dismissible(
+                      key: Key(plan.name),
+                      direction: DismissDirection.endToStart,
+                      onDismissed: (direction) {
+                        _toggleCompletion(plan);
+                      },
+                      background: Container(
+                        color: Colors.green,
+                        alignment: Alignment.centerRight,
+                        padding: EdgeInsets.symmetric(horizontal: 20),
+                        child: Icon(Icons.check, color: Colors.white),
+                      ),
+                      child: GestureDetector(
+                        onDoubleTap: () => _deletePlan(plan),
+                        onLongPress: () => _editPlan(plan),
+                        child: Draggable<Plan>(
+                          data: plan,
+                          feedback: Material(
+                            child: Container(
+                              padding: EdgeInsets.all(8),
+                              color: Colors.blue,
+                              child: Text(plan.name, style: TextStyle(color: Colors.white)),
+                            ),
+                          ),
+                          childWhenDragging: Container(),
+                          child: ListTile(
+                            title: Text(
+                              plan.name,
+                              style: TextStyle(
+                                decoration: plan.isCompleted ? TextDecoration.lineThrough : null,
+                                color: plan.isCompleted ? Colors.green : Colors.black,
+                              ),
+                            ),
+                            subtitle: Text("${plan.description} - ${plan.date.toLocal()}".split(' ')[0]),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                );
+              },
             ),
-            child: GestureDetector(
-              onDoubleTap: () => _deletePlan(index),
-              child: ListTile(
-                title: Text(
-                  plans[index].name,
-                  style: TextStyle(
-                    decoration: plans[index].isCompleted ? TextDecoration.lineThrough : null,
-                  ),
-                ),
-                subtitle: Text("${plans[index].description} - ${plans[index].date.toLocal()}".split(' ')[0]),
-                onLongPress: () => _editPlan(index),
-              ),
-            ),
-          );
-        },
+          ),
+        ],
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => _addPlan("New Plan", "Description", DateTime.now()),
+        onPressed: () => _addPlan("New Plan", "Description", _selectedDate),
         child: Icon(Icons.add),
       ),
     );
